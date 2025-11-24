@@ -28,7 +28,6 @@ swap:
   filename: /swapfile
   size: 1024
   maxsize: 2048
-  mode: "0600"
 
 sysctl:
   # IPv6 を無効にする
