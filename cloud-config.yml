@@ -2,7 +2,7 @@
 
 # パッケージをアップデートする
 package_update: true
-package_upgrade: all
+package_upgrade: true
 
 # タイムゾーンを東京に設定する
 timezone: Asia/Tokyo
