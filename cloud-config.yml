@@ -1,0 +1,89 @@
+#cloud-config
+
+# パッケージをアップデートする
+package_update: true
+package_upgrade: all
+
+# タイムゾーンを東京に設定する
+timezone: Asia/Tokyo
+
+# ローけるを英語に設定する
+locale: en_US.UTF-8
+
+# パスワードログインを禁止する
+ssh_pwauth: false
+
+# 以下のパッケージをインストールする
+packages:
+  - unattended-upgrades
+  - fail2ban
+  - ufw
+  - ca-certificates
+  - curl
+  - gnupg
+
+# スワップを設定する
+# https://help.ubuntu.com/community/SwapFaq#How_much_swap_do_I_need.3F
+swap:
+  filename: /swapfile
+  size: 1024
+  maxsize: 2048
+  mode: "0600"
+
+sysctl:
+  # IPv6 を無効にする
+  net.ipv6.conf.all.disable_ipv6: 1
+  net.ipv6.conf.default.disable_ipv6: 1
+  net.ipv6.conf.lo.disable_ipv6: 1
+
+write_files:
+  # 自動でセキュリティアップデートを適用する
+  - path: /etc/apt/apt.conf.d/99-auto-upgrades.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+  # root ログインを禁止する
+  - path: /etc/ssh/sshd_config.d/99-root-login.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      PermitRootLogin no
+
+runcmd:
+  # ポートを開ける（22, 80, 443）
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow OpenSSH
+  - ufw allow 80/tcp
+  - ufw allow 443/tcp
+  - ufw --force enable
+
+  # fail2ban を有効にする
+  - systemctl enable --now fail2ban
+
+  # Docker をインストールする
+  # https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository
+  - |
+    # GPG キーを追加する
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
+    # リポジトリを追加する
+    cat > /etc/apt/sources.list.d/docker.sources <<EOF
+    Types: deb
+    URIs: https://download.docker.com/linux/ubuntu
+    Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+    Components: stable
+    Signed-By: /etc/apt/keyrings/docker.asc
+    EOF
+    apt-get update
+    # インストールする
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    # ubuntu ユーザーを docker グループに追加する
+    usermod -aG docker ubuntu
+
+  # SSH の設定をリロードする
+  - systemctl reload ssh || systemctl reload sshd
