@@ -29,12 +29,6 @@ swap:
   size: 1024
   maxsize: 2048
 
-sysctl:
-  # IPv6 を無効にする
-  net.ipv6.conf.all.disable_ipv6: 1
-  net.ipv6.conf.default.disable_ipv6: 1
-  net.ipv6.conf.lo.disable_ipv6: 1
-
 write_files:
   # 自動でセキュリティアップデートを適用する
   - path: /etc/apt/apt.conf.d/99-auto-upgrades.conf
@@ -44,6 +38,15 @@ write_files:
       APT::Periodic::Update-Package-Lists "1";
       APT::Periodic::Unattended-Upgrade "1";
 
+  # IPv6 を無効にする
+  - path: /etc/sysctl.d/99-disable-ipv6.conf
+    owner: root:root
+    permissions: "0644"
+    content: |
+      net.ipv6.conf.all.disable_ipv6 = 1
+      net.ipv6.conf.default.disable_ipv6 = 1
+      net.ipv6.conf.lo.disable_ipv6 = 1
+
   # root ログインを禁止する
   - path: /etc/ssh/sshd_config.d/99-root-login.conf
     owner: root:root
@@ -52,6 +55,9 @@ write_files:
       PermitRootLogin no
 
 runcmd:
+  # sysctl の設定を反映する
+  - sysctl --system
+
   # ポートを開ける（22, 80, 443）
   - ufw default deny incoming
   - ufw default allow outgoing
